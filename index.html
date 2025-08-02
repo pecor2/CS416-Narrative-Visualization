@@ -1,1 +1,278 @@
-<h1>Hello World</h1>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">        
+        <style>
+
+            body {
+                font-family: Arial, sans-serif;
+                text-align: center;
+            }
+
+            .charts {
+                width: 900px;
+                height: 450px;
+                margin: 0px auto;
+                border: 10px solid #999999;
+            }
+
+            .narration {
+                width: 900px;
+                height: 200px;
+                margin-top: -10px;
+                margin-left: auto;
+                margin-right: auto;
+                border: 10px solid #999999;
+            }
+
+            .buttons {
+                margin-top: 20px;
+            }
+
+            button {
+                padding: 10px 20px;
+                margin: 0 10px;
+                cursor: pointer;
+                font-size: 16px;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div class="charts" id="charts"></div>
+        <div class="narration" id="narration"></div>
+        <div class="buttons">
+            <button id="prevButton">Previous</button>
+            <button id="detailsButton">Show/Hide Details</button> 
+            <button id="nextButton">Next</button>
+            <br><br>
+            <button id="sourceButton">Sources</button>
+        </div>
+        <script type="module">
+            import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
+            function chart1(details) {
+                const width = 900;
+                const height = 450;
+                const margin = { top: 40, right: 40, bottom: 50, left: 50 };
+                const chartWidth = 800;
+                const chartHeight = 370;
+
+                // Add narration
+                if (details) {
+                    document.getElementById("narration").innerHTML = `<p>${"This is a chart of COVID-19 infections vs population of all 50 states in the US during 2020. The percent of the population who were infected is represented by the position of each dot.<br><br><br>Press the \"Show/Hide Details\" button below to toggle the average across all states.<br><br><br> Even with the average line shown, it appears that states are above or below the threshold at random. Let's take a look at one possible reason for this on the next slide."}</p>`;
+                } else {
+                    document.getElementById("narration").innerHTML = `<p>${"This is a chart of COVID-19 infections vs population of all 50 states in the US during 2020. The percent of the population who were infected is represented by the position of each dot.<br><br><br>Press the \"Show/Hide Details\" button below to toggle the average across all states."}</p>`;
+                }
+                
+                // Create Chart
+                const svg = d3.select("#charts").append("svg").attr("width", width).attr("height", height).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+                // Load data
+                d3.csv("data.csv").then(function(data) {
+                    data.forEach(d => {
+                        d.population = +d.population;
+                        d.cases = +d.cases;
+                        d.mortalityRate = (+d.cases / +d.population);
+                    });
+
+                    const xScale = d3.scaleLinear().domain([0, d3.max(data, d => d.population + 5000000)]).range([0, chartWidth]);
+                    const yScale = d3.scaleLinear().domain([0, d3.max(data, d => d.cases + 5000)]).range([chartHeight, 0]);                
+
+                    // Add datapoints
+                    svg.selectAll("circle").data(data).enter().append("circle").attr("cx", d => xScale(d.population)).attr("cy", d => yScale(d.cases)).attr("r", 3).attr("fill", "black");
+                    // svg.selectAll("text").data(data).enter().append("text").attr("x", d => xScale(d.population)).attr("y", d => yScale(d.cases)).attr("dy", -4).attr("text-anchor", "middle").attr("font-size", "10px").text(d => d.state);
+
+                    
+                    // Add details
+                    if (details) {
+                        const avgMortalityRate = d3.sum(data, d => d.cases) / d3.sum(data, d => d.population);
+                        const maxPopulation = d3.max(data, d => d.population)
+
+                        svg.append("line").attr("x1", xScale(0)).attr("y1", yScale(0)).attr("x2", xScale(maxPopulation)).attr("y2", yScale(avgMortalityRate * maxPopulation)).attr("stroke", "red").attr("stroke-width", 1).attr("stroke-dasharray", "4,4");
+                        svg.append("text").attr("x", chartWidth - 50).attr("y", 70).attr("text-anchor", "middle").attr("font-size", "12px").attr("fill", "red").text("Average Infection Rate = " + d3.format(".1f")(avgMortalityRate*100) + "%");
+                    }
+
+                    // Add chart elements
+                    svg.append("text").attr("x", chartWidth / 2).attr("y", -20).attr("text-anchor", "middle").style("font-size", "16px").text("COVID-19 infections recorded in 2020 vs Population");
+                    svg.append("g").attr("transform", `translate(0,${chartHeight})`).call(d3.axisBottom(xScale)).selectAll("text").style("font-size", "10px");
+                    svg.append("g").call(d3.axisLeft(yScale)).selectAll("text").style("font-size", "8px");
+                });
+            }
+
+            function chart2(details) {
+                const width = 900;
+                const height = 450;
+                const margin = { top: 50, right: 40, bottom: 100, left: 50 };
+                const chartWidth = 800;
+                const chartHeight = 370;
+
+                // Add narration
+                if (details){
+                    document.getElementById("narration").innerHTML = `<p>${"To better illustrate this rate across all states, here is a bar chart of the states ordered by the percentage of the population who caught the disease.<br><br><br> Use the \"Show/Hide Details\" button below to show how preventative measures like a mask mandate have an effect on the data.<br><br>At a glance, it seems like most of the states without a mandate are on the higher end which could cause you to overestimate its impact. In order to get a true value rather than eyeballing an estimate, go to the next slide to see this data combined with the previous scatterplot."}</p>`;
+                } 
+                else {
+                    document.getElementById("narration").innerHTML = `<p>${"To better illustrate this rate across all states, here is a bar chart of the states ordered by the percentage of the population who caught the disease.<br><br><br> Use the \"Show/Hide Details\" button below to show how preventative measures like a mask mandate have an effect on the data. "}</p>`;
+                }
+
+                // Create Chart
+                const svg = d3.select("#charts").append("svg").attr("width", width).attr("height", height).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+
+                // Load and sort data
+                d3.csv("data.csv").then(function(data) {
+                    data.forEach(d => {
+                        d.population = +d.population;
+                        d.cases = +d.cases;
+                        d.mortalityRate = (+d.cases / +d.population) * 100;
+                    });
+                    data.sort((a, b) => a.mortalityRate - b.mortalityRate);
+                    
+                    const xScale = d3.scaleBand().domain(data.map(d => d.state)).range([0, chartWidth]).padding(0.1);
+                    const yScale = d3.scaleLinear().domain([0, d3.max(data, d => d.mortalityRate)]).nice().range([chartHeight, 0]);
+
+                    // Add bars 
+                    if (details){
+                        svg.selectAll(".bar").data(data).enter().append("rect").attr("class", "bar").attr("x", d => xScale(d.state)).attr("y", d => yScale(d.mortalityRate)).attr("width", xScale.bandwidth()).attr("height", d => chartHeight - yScale(d.mortalityRate)).attr("fill", d => d.mask_mandate === "FALSE" ? "orange" : "blue");
+                    } else {
+                        svg.selectAll(".bar").data(data).enter().append("rect").attr("class", "bar").attr("x", d => xScale(d.state)).attr("y", d => yScale(d.mortalityRate)).attr("width", xScale.bandwidth()).attr("height", d => chartHeight - yScale(d.mortalityRate)).attr("fill", "black");
+                    }
+
+                    // Add chart elements
+                    svg.append("g").attr("transform", `translate(0,${chartHeight})`).call(d3.axisBottom(xScale)).selectAll("text").style("text-anchor", "middle").style("font-size", "10px").attr("transform", "rotate(-45)").attr("dx", "-0.8em").attr("dy", "0.15em");
+                    svg.append("g").call(d3.axisLeft(yScale));
+
+                    const title = svg.append("text").attr("x", chartWidth / 2).attr("y", -20).attr("text-anchor", "middle").style("font-size", "16px");
+                    title.append("tspan").attr("x", chartWidth / 2).attr("dy", 0).text("Percentage of population infected by COVID-19 by state in 2020");
+
+                    if (details){
+                        title.append("tspan").attr("x", chartWidth / 2).attr("dy", 20).text("States with mask mandate - 🟦");
+                        title.append("tspan").attr("x", chartWidth / 2).attr("dy", 20).text("States without mask mandate - 🟧");
+                    }
+
+            });
+            }
+
+            function chart3(details) {
+                const width = 900;
+                const height = 450;
+                const margin = { top: 40, right: 40, bottom: 50, left: 50 };
+                const chartWidth = 800;
+                const chartHeight = 370;
+
+                // Add narration 
+                if (details){
+                    document.getElementById("narration").innerHTML = `<p>${"Here's the first chart again, The average infection rate was 7.21% across all states regardless of whether or not they had a mandate. Given what was shown in the prior bar chart, we should expect to see a variance if we were to filter based on mask mandates.<br><br>Take a guess on how a mask mandate would affect this average, then press the \"Show/Hide Details\" button below to see the averages for each category.<br><br>Even though the bar chart looked to show a significant impact, scaling and volume may have made it seem exaggerated. By looking at the whole dataset with all variables we can now see the complete picture. This chart with multiple visual annotations shows it to be a mild impact rather than what may be deduced from a less complete visualization."}</p>`;
+
+                } 
+                else {
+                    document.getElementById("narration").innerHTML = `<p>${"Here's the first chart again, The average infection rate was 7.21% across all states regardless of whether or not they had a mandate. Given what was shown in the prior bar chart, we should expect to see a variance if we were to filter based on mask mandates.<br><br>Take a guess on how a mask mandate would affect this average, then press the \"Show/Hide Details\" button below to see the averages for each category."}</p>`;
+                }
+
+                // Create chart
+                const svg = d3.select("#charts").append("svg").attr("width", width).attr("height", height).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+
+                // Load data
+                d3.csv("data.csv").then(function(data) {
+                    data.forEach(d => {
+                        d.population = +d.population;
+                        d.cases = +d.cases;
+                        d.mortalityRate = (+d.cases / +d.population);
+                    });
+
+                    const xScale = d3.scaleLinear().domain([0, d3.max(data, d => d.population + 5000000)]).range([0, chartWidth]);
+                    const yScale = d3.scaleLinear().domain([0, d3.max(data, d => d.cases + 5000)]).range([chartHeight, 0]);  
+                    
+                    // Add Details
+                    if (details) {
+                        svg.selectAll("circle").data(data).enter().append("circle").attr("cx", d => xScale(d.population)).attr("cy", d => yScale(d.cases)).attr("r", 3).attr("fill", d => d.mask_mandate === "FALSE" ? "orange" : "blue");
+                    } else {
+                        svg.selectAll("circle").data(data).enter().append("circle").attr("cx", d => xScale(d.population)).attr("cy", d => yScale(d.cases)).attr("r", 3).attr("fill", "black");
+                    }
+                    
+                    const withMask = data.filter(d => d.mask_mandate === "TRUE");
+                    const withoutMask = data.filter(d => d.mask_mandate === "FALSE");
+                    const avgMortalityWithMask = d3.sum(withMask, d => d.cases) / d3.sum(withMask, d => d.population);
+                    const avgMortalityWithoutMask = d3.sum(withoutMask, d => d.cases) / d3.sum(withoutMask, d => d.population);
+                    const avgMortalityRate = d3.sum(data, d => d.cases) / d3.sum(data, d => d.population);
+                    const maxPopulation = d3.max(data, d => d.population)
+
+
+                    // Total avg
+                    svg.append("line").attr("x1", xScale(0)).attr("y1", yScale(0)).attr("x2", xScale(maxPopulation)).attr("y2", yScale(avgMortalityRate * maxPopulation)).attr("stroke", "red").attr("stroke-width", 1).attr("stroke-dasharray", "4,4");
+                    svg.append("text").attr("x", chartWidth - 50).attr("y", 70).attr("text-anchor", "middle").attr("font-size", "12px").attr("fill", "red").text("Average Mortality = " + d3.format(".1f")(avgMortalityRate*100) + "%");
+
+                    if (details) {
+                        // Masked avg
+                        svg.append("line").attr("x1", xScale(0)).attr("y1", yScale(0)).attr("x2", xScale(maxPopulation)).attr("y2", yScale(avgMortalityWithMask * maxPopulation)).attr("stroke", "blue").attr("stroke-width", 1).attr("stroke-dasharray", "4,4");
+                        svg.append("text").attr("x", chartWidth - 50).attr("y", 82).attr("text-anchor", "middle").attr("font-size", "12px").attr("fill", "blue").text("Masked Percentage = " + d3.format(".1f")(avgMortalityWithMask*100) + "%");
+
+                        // Unmasked avg
+                        svg.append("line").attr("x1", xScale(0)).attr("y1", yScale(0)).attr("x2", xScale(maxPopulation)).attr("y2", yScale(avgMortalityWithoutMask * maxPopulation)).attr("stroke", "orange").attr("stroke-width", 1).attr("stroke-dasharray", "4,4");
+                        svg.append("text").attr("x", chartWidth - 50).attr("y", 94).attr("text-anchor", "middle").attr("font-size", "12px").attr("fill", "orange").text("Unmasked Percentage = " + d3.format(".1f")(avgMortalityWithoutMask*100) + "%");
+                    }
+
+                    // Add chart elements
+                    svg.append("text").attr("x", chartWidth / 2).attr("y", -20).attr("text-anchor", "middle").style("font-size", "16px").text("COVID-19 infections recorded in 2020 vs Population");
+                    svg.append("g").attr("transform", `translate(0,${chartHeight})`).call(d3.axisBottom(xScale)).selectAll("text").style("font-size", "10px");
+                    svg.append("g").call(d3.axisLeft(yScale)).selectAll("text").style("font-size", "8px");
+                });
+            }
+
+            // Page logic
+            let pageNum = 1;
+            let detailsShown = false;
+
+            function showChart(page, details) {
+                if(page == 1) {
+                    document.getElementById("prevButton").style.visibility = "hidden";
+                    document.getElementById("nextButton").style.visibility = "visible";
+                    chart1(details);
+                } else if(page == 2) {
+                    document.getElementById("prevButton").style.visibility = "visible";
+                    document.getElementById("nextButton").style.visibility = "visible";
+                    chart2(details);
+                } else if(page == 3) {
+                    document.getElementById("prevButton").style.visibility = "visible";
+                    document.getElementById("nextButton").style.visibility = "hidden";                
+                    chart3(details);
+                } else {
+                    alert("Invalid Page, please refresh this window in your browser.")
+                }
+                
+            }
+
+            document.getElementById("nextButton").addEventListener("click", function() {
+                pageNum = (pageNum + 1);
+                d3.select("#charts").selectAll("*").remove();
+                d3.select("#narration").selectAll("*").remove();
+                detailsShown = false;
+                showChart(pageNum, detailsShown);
+            });
+
+            document.getElementById("prevButton").addEventListener("click", function() {
+                pageNum = (pageNum - 1);
+                d3.select("#charts").selectAll("*").remove();
+                d3.select("#narration").selectAll("*").remove();
+                detailsShown = false;
+                showChart(pageNum, detailsShown);
+            });
+
+            document.getElementById("detailsButton").addEventListener("click", function() {
+                detailsShown = !detailsShown;
+                d3.select("#charts").selectAll("*").remove();
+                d3.select("#narration").selectAll("*").remove();
+                showChart(pageNum, detailsShown);
+            });
+
+            document.getElementById("sourceButton").addEventListener("click", function() {
+                alert("Population Data from NYT:\nhttps://github.com/nytimes/covid-19-data\n\nMask Mandate data from CNBC Research:\nhttps://image.cnbcfm.com/api/v1/image/106623871-1595261299014-20200720_mask_mandate_map.png\n\nInfection data from CDC:\nhttps://stacks.cdc.gov/view/cdc/100750");
+            });
+
+            showChart(pageNum, detailsShown);
+        
+        </script>
+
+    </body>
+</html>
